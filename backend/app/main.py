@@ -1,4 +1,8 @@
 import asyncio
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +13,9 @@ from .routes import readings, calibration
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print("API: Iniciando lifespan...")
     await init_db()
+    print("API: Base de datos inicializada. Iniciando tarea MQTT...")
     # Run MQTT subscriber in background
     mqtt_task = asyncio.create_task(run_subscriber())
     yield

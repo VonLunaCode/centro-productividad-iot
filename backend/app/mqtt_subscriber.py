@@ -15,6 +15,7 @@ async def run_subscriber():
     
     while True:
         try:
+            print(f"MQTT: Conectando a {settings.MQTT_HOST}:{settings.MQTT_PORT}...")
             async with aiomqtt.Client(
                 hostname=settings.MQTT_HOST,
                 port=settings.MQTT_PORT,
@@ -22,21 +23,24 @@ async def run_subscriber():
                 password=settings.MQTT_PASS,
                 tls_context=context
             ) as client:
+                print(f"MQTT: ¡CONECTADO! Suscribiendo a centro-productividad/+/sensors")
+                await client.subscribe("centro-productividad/+/sensors")
                 print(f"MQTT: Suscripto a centro-productividad/+/sensors")
-                async with client.messages() as messages:
-                    await client.subscribe("centro-productividad/+/sensors")
-                    async for message in messages:
-                        payload = message.payload.decode()
-                        try:
-                            data = json.loads(payload)
-                            await process_reading(data)
-                        except Exception as e:
-                            print(f"MQTT Error: Fallo al procesar mensaje: {e}")
+                async for message in client.messages:
+                    print(f"MQTT: Mensaje recibido en {message.topic}")
+                    payload = message.payload.decode()
+                    print(f"MQTT: Payload: {payload}")
+                    try:
+                        data = json.loads(payload)
+                        await process_reading(data)
+                    except Exception as e:
+                        print(f"MQTT Error: Fallo al procesar json: {e}")
                             
-        except aiomqtt.MqttError as error:
-            print(f"MQTT Error: Connection lost: {error}. Reintentando en {interval}s...")
+        except Exception as error:
+            print(f"MQTT Error Fatal: {type(error).__name__}: {error}")
+            print(f"Reintentando en {interval}s...")
             await asyncio.sleep(interval)
-            interval = min(interval * 2, 60) # Exponential backoff
+            interval = min(interval * 2, 60)
 
 async def process_reading(data):
     # Evaluation logic
