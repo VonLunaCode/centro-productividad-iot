@@ -3,7 +3,7 @@
 
 // WiFi Configuration
 // TODO: Replace with your actual WiFi credentials
-#define WIFI_SSID "VonLuna5G"
+#define WIFI_SSID "VonLuna2.4G"
 #define WIFI_PASS "fxAsYYPHFNDReUU"
 
 // MQTT Configuration (HiveMQ Cloud)
