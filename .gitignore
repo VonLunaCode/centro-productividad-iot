@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# PlatformIO
+.pio/
+.vscode/
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Drivers (binary, don't version)
+firmware/drivers/
+
+# OS
+.DS_Store
+Thumbs.db
