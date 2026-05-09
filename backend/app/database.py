@@ -42,6 +42,31 @@ async def init_db():
         # Index for performance
         await db.execute("CREATE INDEX IF NOT EXISTS idx_readings_device_ts ON readings (device_id, ts DESC)")
         
+        # Profiles table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                threshold_mm INTEGER NOT NULL DEFAULT 400,
+                device_id TEXT NOT NULL DEFAULT 'esp32-01',
+                is_active INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Insert default profiles if table is empty
+        cursor = await db.execute("SELECT COUNT(*) FROM profiles")
+        count = (await cursor.fetchone())[0]
+        if count == 0:
+            await db.executemany(
+                "INSERT INTO profiles (name, threshold_mm, device_id, is_active) VALUES (?, ?, ?, ?)",
+                [
+                    ("Estudio", 400, "esp32-01", 1),
+                    ("Gaming", 700, "esp32-01", 0),
+                    ("Coding", 500, "esp32-01", 0),
+                ]
+            )
+        
         await db.commit()
 
 async def get_db():

@@ -4,11 +4,12 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .database import init_db
 from .mqtt_subscriber import run_subscriber
-from .routes import readings, calibration
+from .routes import readings, calibration, profiles
+from .websocket import manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +38,17 @@ app.add_middleware(
 
 app.include_router(readings.router, prefix="/api", tags=["Readings"])
 app.include_router(calibration.router, prefix="/api", tags=["Calibration"])
+app.include_router(profiles.router, prefix="/api", tags=["Profiles"])
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive; data flows via broadcast from MQTT subscriber
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 @app.get("/api/health")
 async def health():

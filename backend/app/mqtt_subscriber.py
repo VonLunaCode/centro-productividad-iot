@@ -45,14 +45,22 @@ async def run_subscriber():
 async def process_reading(data):
     # Evaluation logic
     async with aiosqlite.connect(DB_PATH) as db:
-        # Get latest calibration for this device
+        # Priority: active profile threshold > calibration table > default setting
         cursor = await db.execute(
-            "SELECT threshold_mm FROM calibration WHERE device_id = ? ORDER BY id DESC LIMIT 1",
-            (data['device_id'],)
+            "SELECT threshold_mm FROM profiles WHERE is_active = 1 LIMIT 1"
         )
         row = await cursor.fetchone()
-        threshold = row[0] if row else settings.POSTURE_THRESHOLD_MM
-        
+        if row:
+            threshold = row[0]
+        else:
+            # Fallback to calibration table
+            cursor = await db.execute(
+                "SELECT threshold_mm FROM calibration WHERE device_id = ? ORDER BY id DESC LIMIT 1",
+                (data['device_id'],)
+            )
+            row = await cursor.fetchone()
+            threshold = row[0] if row else settings.POSTURE_THRESHOLD_MM
+            
         # Evaluate alerts
         posture_alert = False
         if data['sensors']['distance_mm'] > 0 and data['sensors']['distance_mm'] < threshold:
@@ -74,4 +82,16 @@ async def process_reading(data):
         await db.commit()
         print(f"DB: Guardada lectura de {data['device_id']} | Postura: {posture_alert}")
         
-        # Broadcast to WebSocket would happen here
+        # Broadcast to WebSocket clients
+        from .websocket import manager
+        import json as json_module
+        ws_payload = json_module.dumps({
+            "device_id": data['device_id'],
+            "ts": data['ts'],
+            "sensors": data['sensors'],
+            "alerts": {
+                "posture": posture_alert,
+                "low_light": low_light_alert
+            }
+        })
+        await manager.broadcast(ws_payload)
