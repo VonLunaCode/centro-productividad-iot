@@ -1,0 +1,103 @@
+import statistics
+import logging
+from ..database import fetch_one, fetch_all, execute_query
+
+logger = logging.getLogger(__name__)
+
+async def list_profiles(user_id: int):
+    """Lista todos los perfiles del usuario."""
+    query = "SELECT * FROM profiles WHERE user_id = $1 ORDER BY created_at DESC"
+    return await fetch_all(query, user_id)
+
+async def create_profile(user_id: int, name: str):
+    """Crea un nuevo perfil vacío."""
+    query = "INSERT INTO profiles (user_id, name) VALUES ($1, $2) RETURNING *"
+    return await fetch_one(query, user_id, name)
+
+async def get_profile(profile_id: int, user_id: int):
+    """Obtiene un perfil específico verificando pertenencia."""
+    query = "SELECT * FROM profiles WHERE id = $1 AND user_id = $2"
+    return await fetch_one(query, profile_id, user_id)
+
+async def activate_profile(profile_id: int, user_id: int):
+    """Activa un perfil y desactiva los demás del mismo usuario."""
+    # Desactivar todos los perfiles del usuario primero
+    await execute_query("UPDATE profiles SET is_active = FALSE WHERE user_id = $1", user_id)
+    # Activar el seleccionado
+    query = "UPDATE profiles SET is_active = TRUE WHERE id = $1 AND user_id = $2 RETURNING *"
+    return await fetch_one(query, profile_id, user_id)
+
+async def delete_profile(profile_id: int, user_id: int):
+    """Elimina un perfil."""
+    query = "DELETE FROM profiles WHERE id = $1 AND user_id = $2 RETURNING id"
+    return await fetch_one(query, profile_id, user_id)
+
+async def set_calibrating_state(profile_id: int, user_id: int, state: bool):
+    """Cambia el flag de 'calibrating' en la DB."""
+    query = "UPDATE profiles SET calibrating = $1 WHERE id = $2 AND user_id = $3"
+    await execute_query(query, state, profile_id, user_id)
+
+async def finish_calibration(profile_id: int, user_id: int, samples: list):
+    """
+    Calcula las estadísticas (media ± 2 sigmas) para cada sensor y actualiza el perfil.
+    
+    Lógica (ADR-004):
+    - Se requieren al menos 10 muestras.
+    - Se calcula media y desviación estándar.
+    - El umbral es media ± 2 * std.
+    - Se aplica un piso mínimo a std para evitar rangos nulos.
+    """
+    if len(samples) < 10:
+        return None, "Se requieren al menos 10 muestras para una calibración válida."
+    
+    # 5 sensores reales del hardware
+    sensors = ["distance_mm", "temperature", "humidity", "noise_peak", "lux"]
+
+    # Mapeo sensor → prefijo de columna en profiles
+    col_map = {
+        "distance_mm": "distance",
+        "temperature": "temp",
+        "humidity": "hum",
+        "noise_peak": "noise_peak",
+        "lux": "lux",
+    }
+
+    update_clauses = []
+    query_params = [profile_id, user_id]
+    current_idx = 3 # 1 y 2 son profile_id y user_id
+
+    for sensor in sensors:
+        # Extraer valores de la lista de objetos SensorData
+        values = [getattr(s, sensor) for s in samples]
+        
+        mean = statistics.mean(values)
+        std = statistics.stdev(values) if len(values) > 1 else 0.1
+        
+        # Piso mínimo de sensibilidad (evita alert_temp si la temp es constante perfecta)
+        if std < 0.05: std = 0.05
+        
+        prefix = col_map[sensor]
+        
+        # Generar cláusulas para el UPDATE
+        update_clauses.append(f"{prefix}_mean = ${current_idx}")
+        update_clauses.append(f"{prefix}_std = ${current_idx + 1}")
+        update_clauses.append(f"{prefix}_min = ${current_idx + 2}")
+        update_clauses.append(f"{prefix}_max = ${current_idx + 3}")
+        
+        # Agregar valores a los parámetros
+        query_params.extend([mean, std, mean - 2*std, mean + 2*std])
+        current_idx += 4
+
+    query = f"""
+    UPDATE profiles 
+    SET {", ".join(update_clauses)}, calibrating = FALSE, calibrated_at = NOW(), updated_at = NOW()
+    WHERE id = $1 AND user_id = $2
+    RETURNING *
+    """
+    
+    try:
+        updated_profile = await fetch_one(query, *query_params)
+        return dict(updated_profile), None
+    except Exception as e:
+        logger.error(f"Error al actualizar perfiles tras calibración: {e}")
+        return None, "Error interno al guardar la calibración."

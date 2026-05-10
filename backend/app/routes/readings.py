@@ -1,26 +1,22 @@
 from fastapi import APIRouter, Depends, Query
-from typing import List
-from ..database import get_db
-from ..models import SensorReading
-import aiosqlite
+from typing import List, Optional
+from ..security import get_current_user
+from ..services import reading_service
 
-router = APIRouter()
+router = APIRouter(prefix="/readings", tags=["Readings"])
 
-@router.get("/readings")
+@router.get("/")
 async def get_readings(
-    device_id: str = None, 
-    limit: int = 50,
-    db: aiosqlite.Connection = Depends(get_db)
+    device_id: Optional[str] = None, 
+    limit: int = Query(50, le=500),
+    current_user: dict = Depends(get_current_user)
 ):
-    query = "SELECT * FROM readings"
-    params = []
-    if device_id:
-        query += " WHERE device_id = ?"
-        params.append(device_id)
-    
-    query += " ORDER BY ts DESC LIMIT ?"
-    params.append(limit)
-    
-    cursor = await db.execute(query, params)
-    rows = await cursor.fetchall()
-    return [dict(row) for row in rows]
+    """
+    Retorna el historial de lecturas de sensores.
+    Solo retorna datos pertenecientes al usuario autenticado.
+    """
+    return await reading_service.list_readings(
+        user_id=current_user["id"],
+        device_id=device_id,
+        limit=limit
+    )

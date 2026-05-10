@@ -2,20 +2,24 @@ import json
 import asyncio
 import aiomqtt
 import ssl
-import aiosqlite
+import logging
 from .config import settings
-from .database import DB_PATH
-from .models import SensorReading
+from .database import fetch_one, execute_query
+from .services.alert_service import evaluate_alerts
+
+logger = logging.getLogger(__name__)
 
 async def run_subscriber():
-    # TLS Context for HiveMQ Cloud
+    """
+    Bucle principal del suscriptor MQTT.
+    Mantiene la conexión con HiveMQ y procesa las lecturas entrantes.
+    """
     context = ssl.create_default_context()
-    
-    interval = 1 # retry interval
+    interval = 1 
     
     while True:
         try:
-            print(f"MQTT: Conectando a {settings.MQTT_HOST}:{settings.MQTT_PORT}...")
+            logger.info(f"MQTT: Conectando a {settings.MQTT_HOST}:{settings.MQTT_PORT}...")
             async with aiomqtt.Client(
                 hostname=settings.MQTT_HOST,
                 port=settings.MQTT_PORT,
@@ -23,75 +27,90 @@ async def run_subscriber():
                 password=settings.MQTT_PASS,
                 tls_context=context
             ) as client:
-                print(f"MQTT: ¡CONECTADO! Suscribiendo a centro-productividad/+/sensors")
+                logger.info("MQTT: ¡CONECTADO! Suscribiendo a telemetría...")
+                # Suscribimos a lecturas de sensores de cualquier dispositivo bajo el prefijo
                 await client.subscribe("centro-productividad/+/sensors")
-                print(f"MQTT: Suscripto a centro-productividad/+/sensors")
+                
                 async for message in client.messages:
-                    print(f"MQTT: Mensaje recibido en {message.topic}")
-                    payload = message.payload.decode()
-                    print(f"MQTT: Payload: {payload}")
                     try:
+                        payload = message.payload.decode()
                         data = json.loads(payload)
                         await process_reading(data)
                     except Exception as e:
-                        print(f"MQTT Error: Fallo al procesar json: {e}")
-                            
+                        logger.error(f"MQTT: Error al procesar mensaje en {message.topic}: {e}")
+                             
         except Exception as error:
-            print(f"MQTT Error Fatal: {type(error).__name__}: {error}")
-            print(f"Reintentando en {interval}s...")
+            logger.error(f"MQTT Error Fatal: {error}. Reintentando en {interval}s...")
             await asyncio.sleep(interval)
             interval = min(interval * 2, 60)
 
 async def process_reading(data):
-    # Evaluation logic
-    async with aiosqlite.connect(DB_PATH) as db:
-        # Priority: active profile threshold > calibration table > default setting
-        cursor = await db.execute(
-            "SELECT threshold_mm FROM profiles WHERE is_active = 1 LIMIT 1"
+    """
+    Procesa una lectura individual:
+    1. Identifica sesión/usuario/perfil activo.
+    2. Evalúa alertas basadas en el perfil.
+    3. Persiste en PostgreSQL.
+    4. Notifica vía WebSocket.
+    """
+    device_id = data.get("device_id")
+    sensors = data.get("sensors", {})
+    
+    if not device_id:
+        logger.warning("MQTT: Recibida lectura sin device_id. Ignorando.")
+        return
+
+    # 1. Buscar sesión activa para el dispositivo (para asociar user_id y profile_id)
+    session = await fetch_one(
+        "SELECT id, user_id, profile_id FROM sessions WHERE device_id = $1 AND ended_at IS NULL",
+        device_id
+    )
+    
+    profile = None
+    if session and session["profile_id"]:
+        # Traemos el perfil completo para evaluar los umbrales
+        profile = await fetch_one("SELECT * FROM profiles WHERE id = $1", session["profile_id"])
+
+    # 2. Evaluar alertas (Función pura)
+    alerts = evaluate_alerts(sensors, profile)
+    
+    # 3. Guardar en PostgreSQL (usando pool de asyncpg)
+    query = """
+    INSERT INTO readings (
+        session_id, user_id, profile_id, device_id,
+        distance_mm, temperature, humidity, lux, noise_peak,
+        alert_posture, alert_temp, alert_noise, alert_light, alert_humidity
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    """
+
+    try:
+        await execute_query(
+            query,
+            session["id"] if session else None,
+            session["user_id"] if session else None,
+            session["profile_id"] if session else None,
+            device_id,
+            sensors.get("distance_mm"),
+            sensors.get("temperature"),
+            sensors.get("humidity"),
+            sensors.get("lux"),
+            sensors.get("noise_peak"),
+            alerts["alert_posture"],
+            alerts["alert_temp"],
+            alerts["alert_noise"],
+            alerts["alert_light"],
+            alerts["alert_humidity"]
         )
-        row = await cursor.fetchone()
-        if row:
-            threshold = row[0]
-        else:
-            # Fallback to calibration table
-            cursor = await db.execute(
-                "SELECT threshold_mm FROM calibration WHERE device_id = ? ORDER BY id DESC LIMIT 1",
-                (data['device_id'],)
-            )
-            row = await cursor.fetchone()
-            threshold = row[0] if row else settings.POSTURE_THRESHOLD_MM
-            
-        # Evaluate alerts
-        posture_alert = False
-        if data['sensors']['distance_mm'] > 0 and data['sensors']['distance_mm'] < threshold:
-            posture_alert = True
-            
-        low_light_alert = data['sensors']['light_raw'] < settings.MIN_LIGHT_RAW
-        
-        # Store in DB
-        await db.execute("""
-            INSERT INTO readings 
-            (device_id, ts, distance_mm, temperature_c, humidity_pct, light_raw, noise_peak, posture_alert, low_light_alert)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            data['device_id'], data['ts'], 
-            data['sensors']['distance_mm'], data['sensors']['temperature_c'], 
-            data['sensors']['humidity_pct'], data['sensors']['light_raw'], 
-            data['sensors']['noise_peak'], posture_alert, low_light_alert
-        ))
-        await db.commit()
-        print(f"DB: Guardada lectura de {data['device_id']} | Postura: {posture_alert}")
-        
-        # Broadcast to WebSocket clients
-        from .websocket import manager
-        import json as json_module
-        ws_payload = json_module.dumps({
-            "device_id": data['device_id'],
-            "ts": data['ts'],
-            "sensors": data['sensors'],
-            "alerts": {
-                "posture": posture_alert,
-                "low_light": low_light_alert
-            }
-        })
-        await manager.broadcast(ws_payload)
+        logger.debug(f"DB: Lectura guardada para {device_id}")
+    except Exception as e:
+        logger.error(f"DB Error: No se pudo guardar la lectura de {device_id}: {e}")
+
+    # 4. Broadcast vía WebSocket (Notificación en tiempo real)
+    from .websocket import manager
+    ws_payload = {
+        "type": "sensor_update",
+        "device_id": device_id,
+        "sensors": sensors,
+        "alerts": alerts,
+        "session_active": session is not None
+    }
+    await manager.broadcast(json.dumps(ws_payload))

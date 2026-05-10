@@ -2,52 +2,69 @@
 #define WIFI_MANAGER_H
 
 #include <WiFi.h>
+#include <Preferences.h>
 #include <time.h>
 #include "config.h"
 
-unsigned long lastWifiRetry = 0;
-unsigned long wifiRetryInterval = 5000; // Start with 5s
+static Preferences wifiPrefs;
 
-void wifi_init() {
-    Serial.println("\n--- WiFi: Iniciando ---");
+void wifi_save_credentials(const char* ssid, const char* pass) {
+    wifiPrefs.begin("wifi", false);
+    wifiPrefs.putString("ssid", ssid);
+    wifiPrefs.putString("pass", pass);
+    wifiPrefs.end();
+}
+
+bool wifi_has_credentials() {
+    wifiPrefs.begin("wifi", true);
+    bool has = wifiPrefs.isKey("ssid");
+    wifiPrefs.end();
+    return has;
+}
+
+bool wifi_connect() {
+    wifiPrefs.begin("wifi", true);
+    String ssid = wifiPrefs.getString("ssid", "");
+    String pass = wifiPrefs.getString("pass", "");
+    wifiPrefs.end();
+
+    if (ssid.isEmpty()) return false;
+
+    Serial.printf("WiFi: Conectando a %s...\n", ssid.c_str());
     WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    WiFi.begin(ssid.c_str(), pass.c_str());
 
     int counter = 0;
-    while (WiFi.status() != WL_CONNECTED && counter < 60) { // 30s timeout (500ms * 60)
+    while (WiFi.status() != WL_CONNECTED && counter < 40) {
         delay(500);
         Serial.print(".");
         counter++;
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi Conectado!");
-        Serial.print("IP: ");
-        Serial.println(WiFi.localIP());
-        
-        // Sync NTP
+        Serial.printf("\nWiFi Conectado! IP: %s\n", WiFi.localIP().toString().c_str());
         configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-        Serial.println("NTP: Sincronizando...");
-    } else {
-        Serial.println("\nWiFi: Timeout en conexion inicial.");
+        return true;
     }
+
+    Serial.println("\nWiFi: No se pudo conectar.");
+    return false;
 }
+
+unsigned long lastWifiRetry = 0;
+unsigned long wifiRetryInterval = 5000;
 
 void wifi_loop() {
     if (WiFi.status() != WL_CONNECTED) {
         unsigned long now = millis();
         if (now - lastWifiRetry > wifiRetryInterval) {
             Serial.println("WiFi: Reconectando...");
-            WiFi.disconnect();
-            WiFi.begin(WIFI_SSID, WIFI_PASS);
+            wifi_connect();
             lastWifiRetry = now;
-            
-            // Exponential backoff
-            wifiRetryInterval *= 2;
-            if (wifiRetryInterval > 30000) wifiRetryInterval = 30000; // Cap at 30s
+            wifiRetryInterval = min(wifiRetryInterval * 2, 30000UL);
         }
     } else {
-        wifiRetryInterval = 5000; // Reset interval on success
+        wifiRetryInterval = 5000;
     }
 }
 
@@ -58,9 +75,7 @@ bool wifi_is_connected() {
 unsigned long get_current_ts() {
     time_t now;
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) {
-        return 0;
-    }
+    if (!getLocalTime(&timeinfo)) return 0;
     time(&now);
     return (unsigned long)now;
 }

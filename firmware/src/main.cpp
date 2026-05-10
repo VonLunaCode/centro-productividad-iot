@@ -1,74 +1,66 @@
 #include <Arduino.h>
 #include "config.h"
 #include "wifi_manager.h"
+#include "ble_provisioning.h"
 #include "mqtt_client.h"
 #include "sensors.h"
-#include "calibration.h"
 
+static bool bleMode = false;
 unsigned long lastSensorPublish = 0;
-
-// Override the weak mqtt_callback if needed or handle logic here
-// For simplicity in this structure, we'll use a wrapper
-void handle_mqtt_message(char* topic, byte* payload, unsigned int length) {
-    String msg = "";
-    for (int i = 0; i < length; i++) msg += (char)payload[i];
-    
-    if (String(topic) == TOPIC_CALIBRATE) {
-        if (msg.indexOf("start") >= 0) {
-            calibration_start();
-        } else if (msg.indexOf("threshold") >= 0) {
-            // Simple parsing for threshold value
-            int idx = msg.indexOf(":");
-            if (idx > 0) {
-                int t = msg.substring(idx + 1).toInt();
-                calibration_set_threshold(t);
-            }
-        }
-    }
-}
 
 void setup() {
     Serial.begin(115200);
     delay(1000);
-    
+    Serial.println("\n--- Centro de Productividad IoT ---");
+
     sensors_init();
-    wifi_init();
-    mqtt_init();
-    client.setCallback(handle_mqtt_message);
-    
-    Serial.println("\n--- SISTEMA LISTO ---");
+
+    if (wifi_has_credentials()) {
+        // Normal operation mode
+        bool connected = wifi_connect();
+        if (!connected) {
+            // Credentials exist but couldn't connect — keep trying via wifi_loop
+            Serial.println("Boot: WiFi guardado pero sin conexion. Reintentando en loop...");
+        }
+        mqtt_init();
+    } else {
+        // No credentials stored — enter BLE provisioning mode
+        bleMode = true;
+        ble_provisioning_start();
+    }
+
+    Serial.println("--- SISTEMA LISTO ---");
 }
 
 void loop() {
+    if (bleMode) {
+        if (ble_provisioning_loop()) {
+            Serial.println("Provisioning completo. Reiniciando...");
+            delay(1000);
+            ESP.restart();
+        }
+        return;
+    }
+
+    // Normal WiFi + MQTT operation
     wifi_loop();
-    
+
     if (wifi_is_connected()) {
         mqtt_loop();
-        calibration_loop();
-        
-        unsigned long now = millis();
-        if (now - lastSensorPublish > SENSOR_INTERVAL) {
-            unsigned long ts = get_current_ts();
-            
-            // Posture alert check if threshold is set
-            bool posture_alert = false;
-            if (get_threshold() > 0) {
-                // Read ToF for quick check
-                VL53L0X_RangingMeasurementData_t measure;
-                lox.rangingTest(&measure, false);
-                if (measure.RangeStatus != 4 && measure.RangeMilliMeter < get_threshold()) {
-                    posture_alert = true;
+
+        if (capturing) {
+            unsigned long now = millis();
+            if (now - lastSensorPublish >= SENSOR_INTERVAL) {
+                lastSensorPublish = now;
+
+                char buffer[512];
+                unsigned long ts = get_current_ts();
+                if (sensors_to_json(buffer, sizeof(buffer), ts)) {
+                    if (mqtt_publish(buffer)) {
+                        Serial.printf("MQTT: Publicado -> %s\n", buffer);
+                    }
                 }
             }
-
-            char buffer[512];
-            if (sensors_to_json(buffer, sizeof(buffer), ts, posture_alert, false)) {
-                mqtt_publish(buffer);
-                Serial.print("MQTT: Publicado -> ");
-                Serial.println(buffer);
-            }
-            
-            lastSensorPublish = now;
         }
     }
 }
