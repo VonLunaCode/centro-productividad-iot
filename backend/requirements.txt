@@ -4,6 +4,8 @@ aiomqtt==2.1.0
 pydantic-settings==2.2.1
 python-dotenv==1.0.1
 asyncpg==0.29.0
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.31
 alembic==1.13.2
 pyjwt==2.9.0
 argon2-cffi==23.1.0

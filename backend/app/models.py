@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, List
+from datetime import datetime
 
 class SensorData(BaseModel):
     distance_mm: float  # VL53L0X - postura
