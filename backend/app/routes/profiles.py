@@ -50,15 +50,14 @@ async def start_calibration(id: int, current_user: dict = Depends(get_current_us
 
 @router.post("/{id}/calibrate/finish", response_model=ProfileResponse)
 async def finish_calibration(
-    id: int, 
-    request: CalibrateFinishRequest,
+    id: int,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Recibe las muestras recolectadas por el cliente, calcula los umbrales estadísticos
-    y los persiste en el perfil. Finaliza el estado de calibración.
+    Lee las últimas lecturas de la DB, calcula los umbrales estadísticos
+    y los persiste en el perfil.
     """
-    profile, error = await profile_service.finish_calibration(id, current_user["id"], request.samples)
+    profile, error = await profile_service.finish_calibration(id, current_user["id"])
     try:
         await publish_cmd("esp32-01", "stop")
     except Exception:

@@ -40,23 +40,24 @@ async def set_calibrating_state(profile_id: int, user_id: int, state: bool):
     query = "UPDATE profiles SET calibrating = $1 WHERE id = $2 AND user_id = $3"
     await execute_query(query, state, profile_id, user_id)
 
-async def finish_calibration(profile_id: int, user_id: int, samples: list):
+async def finish_calibration(profile_id: int, user_id: int, device_id: str = "esp32-01"):
     """
-    Calcula las estadísticas (media ± 2 sigmas) para cada sensor y actualiza el perfil.
-    
-    Lógica (ADR-004):
-    - Se requieren al menos 10 muestras.
-    - Se calcula media y desviación estándar.
-    - El umbral es media ± 2 * std.
-    - Se aplica un piso mínimo a std para evitar rangos nulos.
+    Lee las lecturas de los últimos 60 segundos desde la DB y calcula umbrales estadísticos.
+    No depende de que el cliente mande muestras por WebSocket.
     """
-    if len(samples) < 10:
-        return None, "Se requieren al menos 10 muestras para una calibración válida."
-    
-    # 5 sensores reales del hardware
-    sensors = ["distance_mm", "temperature", "humidity", "noise_peak", "lux"]
+    rows = await fetch_all(
+        """
+        SELECT distance_mm, temperature, humidity, lux, noise_peak
+        FROM readings
+        WHERE device_id = $1 AND created_at >= NOW() - INTERVAL '60 seconds'
+        ORDER BY recorded_at DESC
+        """,
+        device_id,
+    )
 
-    # Mapeo sensor → prefijo de columna en profiles
+    if not rows or len(rows) < 5:
+        return None, f"Se requieren al menos 5 muestras. Solo se recibieron {len(rows) if rows else 0}. Verificá que el ESP32 esté enviando datos."
+
     col_map = {
         "distance_mm": "distance",
         "temperature": "temp",
@@ -67,40 +68,33 @@ async def finish_calibration(profile_id: int, user_id: int, samples: list):
 
     update_clauses = []
     query_params = [profile_id, user_id]
-    current_idx = 3 # 1 y 2 son profile_id y user_id
+    current_idx = 3
 
-    for sensor in sensors:
-        # Extraer valores de la lista de objetos SensorData
-        values = [getattr(s, sensor) for s in samples]
-        
+    for sensor, prefix in col_map.items():
+        values = [float(r[sensor]) for r in rows if r[sensor] is not None]
+        if not values:
+            continue
         mean = statistics.mean(values)
-        std = statistics.stdev(values) if len(values) > 1 else 0.1
-        
-        # Piso mínimo de sensibilidad (evita alert_temp si la temp es constante perfecta)
-        if std < 0.05: std = 0.05
-        
-        prefix = col_map[sensor]
-        
-        # Generar cláusulas para el UPDATE
+        std = max(statistics.stdev(values) if len(values) > 1 else 0.1, 0.05)
+
         update_clauses.append(f"{prefix}_mean = ${current_idx}")
         update_clauses.append(f"{prefix}_std = ${current_idx + 1}")
         update_clauses.append(f"{prefix}_min = ${current_idx + 2}")
         update_clauses.append(f"{prefix}_max = ${current_idx + 3}")
-        
-        # Agregar valores a los parámetros
-        query_params.extend([mean, std, mean - 2*std, mean + 2*std])
+        query_params.extend([mean, std, mean - 2 * std, mean + 2 * std])
         current_idx += 4
 
     query = f"""
-    UPDATE profiles 
+    UPDATE profiles
     SET {", ".join(update_clauses)}, calibrating = FALSE, calibrated_at = NOW(), updated_at = NOW()
     WHERE id = $1 AND user_id = $2
     RETURNING *
     """
-    
+
     try:
         row = await fetch_one(query, *query_params)
+        logger.info(f"Calibración completada con {len(rows)} muestras para perfil {profile_id}")
         return (dict(row) if row else None), None
     except Exception as e:
-        logger.error(f"Error al actualizar perfiles tras calibración: {e}")
+        logger.error(f"Error al guardar calibración: {e}")
         return None, "Error interno al guardar la calibración."
