@@ -4,12 +4,16 @@ import 'package:go_router/go_router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 import '../auth/auth_provider.dart';
+import 'settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final username = ref.watch(authProvider).username ?? '—';
+    final settings = ref.watch(settingsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -21,13 +25,22 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(24),
         children: [
           const _SettingsSection(title: 'CUENTA'),
-          _buildItem(Icons.person_outline, 'Perfil de Usuario', 'Mateo Arango'),
-          _buildItem(Icons.alternate_email, 'Correo', 'mateo@ejemplo.com'),
+          _buildItem(Icons.person_outline, 'Usuario', username),
           
           const SizedBox(height: 32),
           const _SettingsSection(title: 'PREFERENCIAS'),
-          _buildToggleItem(Icons.notifications_active_outlined, 'Alertas Intrusivas', true),
-          _buildToggleItem(Icons.vibration, 'Vibración de Alerta', true),
+          _buildToggleItem(
+            Icons.notifications_active_outlined,
+            'Alertas Intrusivas',
+            settings.alertsEnabled,
+            (v) => ref.read(settingsProvider.notifier).toggleAlerts(v),
+          ),
+          _buildToggleItem(
+            Icons.vibration,
+            'Vibración de Alerta',
+            settings.vibrationEnabled,
+            (v) => ref.read(settingsProvider.notifier).toggleVibration(v),
+          ),
           _buildItem(Icons.language, 'Idioma', 'Español'),
           
           const SizedBox(height: 32),
@@ -78,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildToggleItem(IconData icon, String title, bool value) {
+  Widget _buildToggleItem(IconData icon, String title, bool value, ValueChanged<bool> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: GlassCard(
@@ -92,7 +105,7 @@ class SettingsScreen extends ConsumerWidget {
             const Spacer(),
             Switch(
               value: value,
-              onChanged: (v) {},
+              onChanged: onChanged,
               activeColor: AppColors.primary,
             ),
           ],

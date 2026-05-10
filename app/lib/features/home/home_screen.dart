@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
+import '../auth/auth_provider.dart';
+import '../profiles/profiles_provider.dart';
 import 'widgets/hub_card.dart';
 import 'widgets/feature_card.dart';
 
@@ -12,6 +14,18 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final username = ref.watch(authProvider).username ?? '';
+    final initials = username.isNotEmpty
+        ? username.substring(0, username.length >= 2 ? 2 : 1).toUpperCase()
+        : '?';
+    final profilesState = ref.watch(profilesProvider);
+    final profileCount = profilesState.profiles.length;
+    final activeProfile = profilesState.activeProfile;
+    final profileSubtitle = profileCount == 0
+        ? 'Sin perfiles. Creá uno para empezar'
+        : '$profileCount ${profileCount == 1 ? "perfil" : "perfiles"}'
+            '${activeProfile != null ? " · ${activeProfile.name} activo" : ""}';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Container(
@@ -36,8 +50,8 @@ class HomeScreen extends ConsumerWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Hola, Mateo',
+                          Text(
+                            'Hola, $username',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -60,7 +74,7 @@ class HomeScreen extends ConsumerWidget {
                       const Spacer(),
                       _iconAction(Icons.notifications_outlined),
                       const SizedBox(width: 12),
-                      _avatar('MA'),
+                      _avatar(initials),
                     ],
                   ),
                 ),
@@ -92,28 +106,30 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     FeatureCard(
                       title: 'Perfiles',
-                      subtitle: '3 perfiles: Oficina, Reunión, Foco',
+                      subtitle: profileSubtitle,
                       icon: Icons.person_search_outlined,
                       accentColor: AppColors.primary,
                       onTap: () => context.push(AppRoutes.profiles),
                     ),
                     FeatureCard(
                       title: 'Sesión Activa',
-                      subtitle: 'Sin sesión. Inicia una desde un perfil',
+                      subtitle: activeProfile != null
+                          ? 'Perfil: ${activeProfile.name}'
+                          : 'Sin sesión activa',
                       icon: Icons.play_arrow_outlined,
                       accentColor: Colors.white24,
                       onTap: () => context.push(AppRoutes.session),
                     ),
                     FeatureCard(
                       title: 'Historial',
-                      subtitle: '24 sesiones. Última: ayer 16:42',
+                      subtitle: 'Ver sesiones anteriores',
                       icon: Icons.bar_chart_outlined,
                       accentColor: Colors.white24,
                       onTap: () => context.push(AppRoutes.history),
                     ),
                     FeatureCard(
                       title: 'Configuración',
-                      subtitle: 'Permisos y cuenta. 2 pendientes',
+                      subtitle: 'Cuenta y preferencias',
                       icon: Icons.settings_outlined,
                       accentColor: Colors.white24,
                       onTap: () => context.push(AppRoutes.settings),
@@ -155,7 +171,7 @@ class HomeScreen extends ConsumerWidget {
                         child: _quickActionButton(
                           Icons.add,
                           'Nuevo perfil',
-                          () => {}, // To implement
+                          () => _showCreateProfileDialog(context, ref),
                         ),
                       ),
                     ],
@@ -211,6 +227,41 @@ class HomeScreen extends ConsumerWidget {
             fontSize: 14,
           ),
         ),
+      ),
+    );
+  }
+
+  void _showCreateProfileDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Nuevo Perfil', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Nombre del perfil (ej: Oficina)',
+            hintStyle: TextStyle(color: Colors.white38),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.isNotEmpty) {
+                final success = await ref.read(profilesProvider.notifier).createProfile(controller.text);
+                if (success && context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Crear'),
+          ),
+        ],
       ),
     );
   }

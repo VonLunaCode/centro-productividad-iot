@@ -8,22 +8,26 @@ class AuthState {
   final bool isLoading;
   final String? error;
   final bool isAuthenticated;
+  final String? username;
 
   AuthState({
     this.isLoading = false,
     this.error,
     this.isAuthenticated = false,
+    this.username,
   });
 
   AuthState copyWith({
     bool? isLoading,
     String? error,
     bool? isAuthenticated,
+    String? username,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      username: username ?? this.username,
     );
   }
 }
@@ -35,14 +39,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> checkAuth() async {
     final token = await TokenStorage.getToken();
-    if (token != null) {
-      state = state.copyWith(isAuthenticated: true);
+    if (token == null) return;
+
+    try {
+      final meResponse = await ApiClient.get(Endpoints.me);
+      if (meResponse.statusCode == 200) {
+        final user = jsonDecode(meResponse.body);
+        state = state.copyWith(
+          isAuthenticated: true,
+          username: user['username'] as String?,
+        );
+      } else {
+        await TokenStorage.deleteToken();
+      }
+    } catch (_) {
+      await TokenStorage.deleteToken();
     }
   }
 
   Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final response = await ApiClient.post(Endpoints.login, {
         'username': username,
@@ -51,22 +68,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final token = data['access_token'];
-        await TokenStorage.saveToken(token);
-        state = state.copyWith(isLoading: false, isAuthenticated: true);
+        await TokenStorage.saveToken(data['access_token']);
+        state = state.copyWith(
+          isLoading: false,
+          isAuthenticated: true,
+          username: username,
+        );
         return true;
       } else {
-        // En v2, el backend devuelve 401 para fallos de auth
         state = state.copyWith(
-          isLoading: false, 
-          error: 'Credenciales inválidas. Verifica con el administrador.'
+          isLoading: false,
+          error: 'Credenciales inválidas. Verifica con el administrador.',
         );
         return false;
       }
     } catch (e) {
       state = state.copyWith(
-        isLoading: false, 
-        error: 'No se pudo conectar con el servidor.'
+        isLoading: false,
+        error: 'No se pudo conectar con el servidor.',
       );
       return false;
     }

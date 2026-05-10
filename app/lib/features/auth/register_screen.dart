@@ -7,6 +7,7 @@ import '../../core/api/endpoints.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/glass_text_field.dart';
 import '../../shared/widgets/primary_button.dart';
+import 'auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -60,14 +61,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       });
 
       if (response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Cuenta creada! Ya podés iniciar sesión.'),
-              backgroundColor: AppColors.primary,
-            ),
-          );
-          context.pop();
+        final success = await ref.read(authProvider.notifier).login(username, password);
+        if (success && mounted) {
+          context.go('/');
         }
       } else {
         try {
