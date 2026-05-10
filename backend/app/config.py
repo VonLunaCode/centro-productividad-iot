@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     MQTT_PASS: str = "Esp32-client"
     MQTT_DEVICE_ID: str = "esp32-01"
     MQTT_TOPIC_DATA: str = "sensors/data"
-    MQTT_TOPIC_CMD_PREFIX: str = "device"
+    MQTT_TOPIC_CMD_PREFIX: str = "centro-productividad"
     
     # Database
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/iot_db"
