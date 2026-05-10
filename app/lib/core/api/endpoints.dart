@@ -1,7 +1,7 @@
 class Endpoints {
   // Nota: Cambiar por la URL real de Railway tras el deploy
-  static const String baseUrl = 'https://iot-backend-v2.up.railway.app/api';
-  static const String wsUrl = 'wss://iot-backend-v2.up.railway.app/ws';
+  static const String baseUrl = 'https://centro-productividad-iot-production.up.railway.app/api';
+  static const String wsUrl = 'wss://centro-productividad-iot-production.up.railway.app/ws';
 
   // Auth
   static const String login = '/auth/login';

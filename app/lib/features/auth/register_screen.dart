@@ -70,8 +70,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           context.pop();
         }
       } else {
-        final body = jsonDecode(response.body);
-        setState(() => _error = body['detail'] ?? 'Error al registrar.');
+        try {
+          final body = jsonDecode(response.body);
+          final detail = body['detail'];
+          setState(() => _error = detail is String
+              ? detail
+              : 'Error ${response.statusCode}');
+        } catch (_) {
+          setState(() => _error = 'Error ${response.statusCode}');
+        }
       }
     } catch (e) {
       setState(() => _error = 'No se pudo conectar con el servidor.');
