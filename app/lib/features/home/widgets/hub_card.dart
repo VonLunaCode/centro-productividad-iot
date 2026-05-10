@@ -1,23 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../core/websocket/websocket_provider.dart';
 
-class HubCard extends StatelessWidget {
-  final String deviceName;
-  final bool isOnline;
-  final int sensorCount;
-  final int signalStrength;
-
-  const HubCard({
-    super.key,
-    required this.deviceName,
-    required this.isOnline,
-    required this.sensorCount,
-    required this.signalStrength,
-  });
+class HubCard extends ConsumerWidget {
+  const HubCard({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOnline = ref.watch(deviceOnlineProvider);
+
     return GlassCard(
       opacity: 0.1,
       padding: const EdgeInsets.all(20),
@@ -40,7 +33,7 @@ class HubCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      deviceName,
+                      isOnline ? 'ESP32-01' : 'Sin dispositivo',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -54,14 +47,14 @@ class HubCard extends StatelessWidget {
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isOnline ? AppColors.success : AppColors.error,
+                            color: isOnline ? AppColors.success : Colors.white24,
                           ),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           isOnline ? 'ONLINE' : 'OFFLINE',
                           style: TextStyle(
-                            color: isOnline ? AppColors.success : AppColors.error,
+                            color: isOnline ? AppColors.success : Colors.white38,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
@@ -75,17 +68,19 @@ class HubCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _infoItem(Icons.sensors, '$sensorCount sensores'),
-              _infoItem(Icons.wifi, 'WiFi'),
-              Text(
-                '${signalStrength}dBm',
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-            ],
-          ),
+          isOnline
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _infoItem(Icons.sensors, '5 sensores'),
+                    _infoItem(Icons.wifi, 'WiFi'),
+                    _infoItem(Icons.circle, 'EN VIVO'),
+                  ],
+                )
+              : Text(
+                  'Vinculá tu dispositivo para comenzar',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
         ],
       ),
     );

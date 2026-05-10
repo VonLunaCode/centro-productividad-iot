@@ -69,6 +69,21 @@ class ProfilesNotifier extends StateNotifier<ProfilesState> {
     }
   }
 
+  Future<bool> deleteProfile(int id) async {
+    try {
+      final response = await ApiClient.delete(Endpoints.deleteProfile(id));
+      if (response.statusCode == 200) {
+        state = state.copyWith(
+          profiles: state.profiles.where((p) => p.id != id).toList(),
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> createProfile(String name) async {
     try {
       final response = await ApiClient.post(Endpoints.profiles, {'name': name});

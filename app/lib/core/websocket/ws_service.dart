@@ -11,27 +11,31 @@ class WsService {
 
   Stream<Map<String, dynamic>> get stream => _controller.stream;
 
+  int _reconnectAttempts = 0;
+  static const _maxReconnectAttempts = 10;
+
   Future<void> connect() async {
     if (_isConnecting || _channel != null) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) return;
     _isConnecting = true;
 
     try {
       final token = await TokenStorage.getToken();
-      if (token == null) return;
+      if (token == null) {
+        _isConnecting = false;
+        return;
+      }
 
-      // Usar ws:// o wss:// según el entorno (Backend v2 usa WebSocket)
-      final uri = Uri.parse(Endpoints.baseUrl.replaceFirst('http', 'ws') + '/ws?token=$token');
-      
+      final uri = Uri.parse('${Endpoints.wsUrl}?token=$token');
       _channel = WebSocketChannel.connect(uri);
-      
+      await _channel!.ready;
+
+      _reconnectAttempts = 0;
       _channel!.stream.listen(
         (data) {
           try {
-            final decoded = jsonDecode(data);
-            _controller.add(decoded);
-          } catch (e) {
-            // Ignorar errores de parseo
-          }
+            _controller.add(jsonDecode(data) as Map<String, dynamic>);
+          } catch (_) {}
         },
         onDone: () => _handleReconnect(),
         onError: (_) => _handleReconnect(),
@@ -45,7 +49,10 @@ class WsService {
 
   void _handleReconnect() {
     _channel = null;
-    Timer(const Duration(seconds: 5), () => connect());
+    _reconnectAttempts++;
+    if (_reconnectAttempts >= _maxReconnectAttempts) return;
+    final delay = Duration(seconds: _reconnectAttempts * 5);
+    Timer(delay, () => connect());
   }
 
   void disconnect() {

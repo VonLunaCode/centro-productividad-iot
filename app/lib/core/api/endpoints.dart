@@ -11,6 +11,7 @@ class Endpoints {
   // Profiles
   static const String profiles = '/profiles/';
   static String activateProfile(int id) => '/profiles/$id/activate';
+  static String deleteProfile(int id) => '/profiles/$id';
   static String calibrateStart(int id) => '/profiles/$id/calibrate/start';
   static String calibrateFinish(int id) => '/profiles/$id/calibrate/finish';
 

@@ -74,6 +74,30 @@ class _ProfileItem extends ConsumerWidget {
   final dynamic profile;
   const _ProfileItem({required this.profile});
 
+  void _confirmDelete(BuildContext context, WidgetRef ref, dynamic profile) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Eliminar perfil', style: TextStyle(color: Colors.white)),
+        content: Text(
+          '¿Eliminás "${profile.name}"? Esta acción no se puede deshacer.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(profilesProvider.notifier).deleteProfile(profile.id);
+            },
+            child: const Text('Eliminar', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
@@ -116,16 +140,18 @@ class _ProfileItem extends ConsumerWidget {
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined, color: Colors.white38),
-              onPressed: () {
-                // Navegar al detalle (Phase 5.4)
-                context.push(AppRoutes.profileDetail, extra: profile);
-              },
+              onPressed: () => context.push(AppRoutes.profileDetail, extra: profile),
             ),
-            if (!profile.isActive)
+            if (!profile.isActive) ...[
               IconButton(
                 icon: const Icon(Icons.check_circle_outline, color: AppColors.primary),
                 onPressed: () => ref.read(profilesProvider.notifier).activateProfile(profile.id),
               ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                onPressed: () => _confirmDelete(context, ref, profile),
+              ),
+            ],
           ],
         ),
       ),

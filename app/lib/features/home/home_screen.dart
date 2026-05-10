@@ -84,12 +84,7 @@ class HomeScreen extends ConsumerWidget {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24.0),
-                  child: HubCard(
-                    deviceName: 'HUB-A · Oficina',
-                    isOnline: true,
-                    sensorCount: 5,
-                    signalStrength: -52,
-                  ),
+                  child: HubCard(),
                 ),
               ),
               

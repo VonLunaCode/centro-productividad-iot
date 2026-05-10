@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PrimaryButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget child;
   final bool isLoading;
 
@@ -36,7 +36,7 @@ class PrimaryButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isLoading ? null : onPressed,
+          onTap: isLoading || onPressed == null ? null : onPressed,
           borderRadius: BorderRadius.circular(28),
           child: Center(
             child: isLoading

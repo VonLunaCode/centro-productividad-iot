@@ -30,12 +30,17 @@ async def run_subscriber():
                 logger.info("MQTT: ¡CONECTADO! Suscribiendo a telemetría...")
                 # Suscribimos a lecturas de sensores de cualquier dispositivo bajo el prefijo
                 await client.subscribe("centro-productividad/+/sensors")
-                
+                await client.subscribe("centro-productividad/+/status")
+
                 async for message in client.messages:
                     try:
+                        topic = str(message.topic)
                         payload = message.payload.decode()
-                        data = json.loads(payload)
-                        await process_reading(data)
+                        if topic.endswith("/status"):
+                            await process_status(topic, payload)
+                        else:
+                            data = json.loads(payload)
+                            await process_reading(data)
                     except Exception as e:
                         logger.error(f"MQTT: Error al procesar mensaje en {message.topic}: {e}")
                              
@@ -43,6 +48,17 @@ async def run_subscriber():
             logger.error(f"MQTT Error Fatal: {error}. Reintentando en {interval}s...")
             await asyncio.sleep(interval)
             interval = min(interval * 2, 60)
+
+async def process_status(topic: str, status: str):
+    parts = topic.split("/")
+    device_id = parts[1] if len(parts) >= 3 else "unknown"
+    from .websocket import manager
+    await manager.broadcast(json.dumps({
+        "type": "device_status",
+        "device_id": device_id,
+        "status": status.strip(),
+    }))
+    logger.info(f"MQTT: Estado de {device_id} -> {status}")
 
 async def process_reading(data):
     """
