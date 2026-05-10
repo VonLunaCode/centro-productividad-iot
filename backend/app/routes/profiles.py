@@ -3,6 +3,7 @@ from typing import List
 from ..models import ProfileCreate, ProfileResponse, CalibrateFinishRequest
 from ..security import get_current_user
 from ..services import profile_service
+from ..mqtt_publisher import publish_cmd
 
 router = APIRouter(prefix="/profiles", tags=["Profiles"])
 
@@ -41,6 +42,10 @@ async def start_calibration(id: int, current_user: dict = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Perfil no encontrado")
     
     await profile_service.set_calibrating_state(id, current_user["id"], True)
+    try:
+        await publish_cmd("esp32-01", "start")
+    except Exception:
+        pass  # No bloqueamos si MQTT falla
     return {"status": "calibrating", "message": "Iniciando recolección de muestras en el cliente..."}
 
 @router.post("/{id}/calibrate/finish", response_model=ProfileResponse)
@@ -54,8 +59,11 @@ async def finish_calibration(
     y los persiste en el perfil. Finaliza el estado de calibración.
     """
     profile, error = await profile_service.finish_calibration(id, current_user["id"], request.samples)
+    try:
+        await publish_cmd("esp32-01", "stop")
+    except Exception:
+        pass
     if error:
-        # Quitamos el estado de calibración si hubo error para no bloquear el perfil
         await profile_service.set_calibrating_state(id, current_user["id"], False)
         raise HTTPException(status_code=400, detail=error)
     return profile

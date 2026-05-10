@@ -6,7 +6,7 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-async def publish_cmd(device_id: str, action: str, session_id: int):
+async def publish_cmd(device_id: str, action: str, session_id: int = None):
     """
     Publica un comando al dispositivo vía MQTT.
     

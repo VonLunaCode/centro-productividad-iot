@@ -18,8 +18,7 @@ class CalibrationScreen extends ConsumerStatefulWidget {
 class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
   @override
   void dispose() {
-    // Resetear el estado al salir
-    Future.microtask(() => ref.read(calibrationProvider.notifier).reset());
+    ref.read(calibrationProvider.notifier).reset();
     super.dispose();
   }
 
