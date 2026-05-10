@@ -53,11 +53,7 @@ async def process_status(topic: str, status: str):
     parts = topic.split("/")
     device_id = parts[1] if len(parts) >= 3 else "unknown"
     from .websocket import manager
-    await manager.broadcast(json.dumps({
-        "type": "device_status",
-        "device_id": device_id,
-        "status": status.strip(),
-    }))
+    await manager.broadcast_device_status(device_id, status.strip())
     logger.info(f"MQTT: Estado de {device_id} -> {status}")
 
 async def process_reading(data):

@@ -8,15 +8,12 @@ class WsService {
   WebSocketChannel? _channel;
   final StreamController<Map<String, dynamic>> _controller = StreamController.broadcast();
   bool _isConnecting = false;
+  int _reconnectDelay = 3;
 
   Stream<Map<String, dynamic>> get stream => _controller.stream;
 
-  int _reconnectAttempts = 0;
-  static const _maxReconnectAttempts = 10;
-
   Future<void> connect() async {
     if (_isConnecting || _channel != null) return;
-    if (_reconnectAttempts >= _maxReconnectAttempts) return;
     _isConnecting = true;
 
     try {
@@ -30,7 +27,7 @@ class WsService {
       _channel = WebSocketChannel.connect(uri);
       await _channel!.ready;
 
-      _reconnectAttempts = 0;
+      _reconnectDelay = 3;
       _channel!.stream.listen(
         (data) {
           try {
@@ -49,10 +46,16 @@ class WsService {
 
   void _handleReconnect() {
     _channel = null;
-    _reconnectAttempts++;
-    if (_reconnectAttempts >= _maxReconnectAttempts) return;
-    final delay = Duration(seconds: _reconnectAttempts * 5);
-    Timer(delay, () => connect());
+    final delay = _reconnectDelay;
+    _reconnectDelay = (_reconnectDelay * 2).clamp(3, 60);
+    Timer(Duration(seconds: delay), () => connect());
+  }
+
+  void forceReconnect() {
+    _channel?.sink.close();
+    _channel = null;
+    _reconnectDelay = 3;
+    connect();
   }
 
   void disconnect() {

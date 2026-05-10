@@ -13,6 +13,10 @@ final websocketProvider = StreamProvider<Map<String, dynamic>>((ref) {
   return service.stream;
 });
 
+void reconnectWebSocket(WidgetRef ref) {
+  ref.read(wsServiceProvider).forceReconnect();
+}
+
 // Mantiene el estado online/offline del ESP32 de forma persistente
 final deviceOnlineProvider = StateNotifierProvider<DeviceStatusNotifier, bool>((ref) {
   final notifier = DeviceStatusNotifier();

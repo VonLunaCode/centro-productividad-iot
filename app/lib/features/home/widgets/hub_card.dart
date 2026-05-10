@@ -77,9 +77,18 @@ class HubCard extends ConsumerWidget {
                     _infoItem(Icons.circle, 'EN VIVO'),
                   ],
                 )
-              : Text(
-                  'Vinculá tu dispositivo para comenzar',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Sin señal del dispositivo',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                    GestureDetector(
+                      onTap: () => reconnectWebSocket(ref),
+                      child: const Icon(Icons.refresh, color: Colors.white24, size: 18),
+                    ),
+                  ],
                 ),
         ],
       ),
