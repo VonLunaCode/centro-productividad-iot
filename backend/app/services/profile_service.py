@@ -49,7 +49,7 @@ async def finish_calibration(profile_id: int, user_id: int, device_id: str = "es
         """
         SELECT distance_mm, temperature, humidity, lux, noise_peak
         FROM readings
-        WHERE device_id = $1 AND created_at >= NOW() - INTERVAL '60 seconds'
+        WHERE device_id = $1 AND ts >= NOW() - INTERVAL '60 seconds'
         ORDER BY recorded_at DESC
         """,
         device_id,
