@@ -1,0 +1,84 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#110828"/>
+      <stop offset="100%" stop-color="#060610"/>
+    </linearGradient>
+
+    <!-- Purple gradient (main) -->
+    <linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9B4DFF"/>
+      <stop offset="100%" stop-color="#4A00E0"/>
+    </linearGradient>
+
+    <!-- Cyan-purple gradient (accent nodes) -->
+    <linearGradient id="gCyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#7B2FBE"/>
+    </linearGradient>
+
+    <!-- Center radial glow -->
+    <radialGradient id="bgGlow" cx="256" cy="256" r="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5B1F9E" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#060610" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glow filter for center circle -->
+    <filter id="glowStrong" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft glow for nodes -->
+    <filter id="glowSoft" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Mask for background rounding -->
+    <clipPath id="roundClip">
+      <rect width="512" height="512" rx="115" ry="115"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background layers -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#bgGlow)"/>
+
+  <!-- Outer decorative ring (very subtle) -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#7B2FBE" stroke-width="1" opacity="0.18"/>
+  <circle cx="256" cy="256" r="136" fill="none" stroke="#7B2FBE" stroke-width="1" opacity="0.12"/>
+
+  <!-- Dashed connection lines: center → nodes -->
+  <line x1="256" y1="210" x2="256" y2="131" stroke="#00E5FF" stroke-width="2.5"
+        stroke-dasharray="5 5" opacity="0.45" stroke-linecap="round"/>
+  <line x1="290" y1="278" x2="351" y2="316" stroke="#9B4DFF" stroke-width="2.5"
+        stroke-dasharray="5 5" opacity="0.45" stroke-linecap="round"/>
+  <line x1="222" y1="278" x2="161" y2="316" stroke="#9B4DFF" stroke-width="2.5"
+        stroke-dasharray="5 5" opacity="0.45" stroke-linecap="round"/>
+
+  <!-- IoT device nodes (outer) -->
+  <circle cx="256" cy="116" r="16" fill="url(#gCyan)" filter="url(#glowSoft)"/>
+  <circle cx="363" cy="326" r="16" fill="url(#gPurple)" filter="url(#glowSoft)"/>
+  <circle cx="149" cy="326" r="16" fill="url(#gPurple)" filter="url(#glowSoft)"/>
+
+  <!-- Center hub circle -->
+  <circle cx="256" cy="256" r="74" fill="url(#gPurple)" filter="url(#glowStrong)"/>
+
+  <!-- WiFi / broadcast arcs inside center circle (white, pointing up) -->
+  <path d="M 213 262 A 60 60 0 0 1 299 262"
+        stroke="white" stroke-width="7" fill="none"
+        stroke-linecap="round" opacity="0.95"/>
+  <path d="M 229 278 A 36 36 0 0 1 283 278"
+        stroke="white" stroke-width="7" fill="none"
+        stroke-linecap="round" opacity="0.95"/>
+  <!-- Center dot -->
+  <circle cx="256" cy="290" r="8" fill="white"/>
+</svg>

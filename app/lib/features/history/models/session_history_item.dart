@@ -1,4 +1,4 @@
-class SessionHistory {
+class SessionHistoryItem {
   final int id;
   final DateTime startedAt;
   final DateTime? endedAt;
@@ -11,7 +11,7 @@ class SessionHistory {
   final double lightAlertPct;
   final double humidityAlertPct;
 
-  SessionHistory({
+  SessionHistoryItem({
     required this.id,
     required this.startedAt,
     this.endedAt,
@@ -25,8 +25,8 @@ class SessionHistory {
     required this.humidityAlertPct,
   });
 
-  factory SessionHistory.fromJson(Map<String, dynamic> json) {
-    return SessionHistory(
+  factory SessionHistoryItem.fromJson(Map<String, dynamic> json) {
+    return SessionHistoryItem(
       id: json['id'],
       startedAt: DateTime.parse(json['started_at']).toLocal(),
       endedAt: json['ended_at'] != null ? DateTime.parse(json['ended_at']).toLocal() : null,
@@ -44,7 +44,7 @@ class SessionHistory {
   String get durationFormatted {
     if (durationMinutes == null) return '--';
     final mins = durationMinutes!.round();
-    if (mins < 60) return '${mins} min';
+    if (mins < 60) return '${mins}m';
     final h = mins ~/ 60;
     final m = mins % 60;
     return m > 0 ? '${h}h ${m}m' : '${h}h';
@@ -59,11 +59,6 @@ class SessionHistory {
       'Humedad': humidityAlertPct,
     };
     final max = alerts.entries.reduce((a, b) => a.value > b.value ? a : b);
-    return max.value > 0 ? max.key : 'Sin alertas';
-  }
-
-  double get overallAlertPct {
-    final vals = [postureAlertPct, tempAlertPct, noiseAlertPct, lightAlertPct, humidityAlertPct];
-    return vals.reduce((a, b) => a > b ? a : b);
+    return max.value > 0 ? max.key : 'Ninguna';
   }
 }

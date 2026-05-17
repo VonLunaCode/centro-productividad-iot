@@ -7,6 +7,8 @@
 #include <ArduinoJson.h>
 #include "config.h"
 
+#define I2S_PORT I2S_NUM_0
+
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
 DHT dht(PIN_DHT, DHT11);
 
@@ -25,18 +27,28 @@ void sensors_init() {
     dht.begin();
     pinMode(PIN_LDR, INPUT);
     pinMode(PIN_MIC, INPUT);
+    analogReadResolution(12);
 }
 
-int get_noise_peak() {
+int sample_window_mic(int ms) {
     int signalMax = 0;
     int signalMin = 4095;
     unsigned long start = millis();
-    while (millis() - start < 50) {
+    while (millis() - start < (unsigned long)ms) {
         int s = analogRead(PIN_MIC);
         if (s > signalMax) signalMax = s;
         if (s < signalMin) signalMin = s;
     }
     return signalMax - signalMin;
+}
+
+int get_noise_peak() {
+    // 3 ventanas de 500ms, retorna la maxima
+    // Baseline silencio: ~750 | Ruido ambiente: >1000
+    int a = sample_window_mic(500);
+    int b = sample_window_mic(500);
+    int c = sample_window_mic(500);
+    return max(a, max(b, c));
 }
 
 // Field names match what the backend mqtt_subscriber.py expects
@@ -50,7 +62,9 @@ bool sensors_to_json(char* buffer, size_t size, unsigned long ts) {
 
     VL53L0X_RangingMeasurementData_t measure;
     lox.rangingTest(&measure, false);
-    sensors["distance_mm"] = (measure.RangeStatus != 4) ? (float)measure.RangeMilliMeter : -1.0f;
+    int distVal = (measure.RangeStatus != 4 && measure.RangeMilliMeter < 8190)
+                  ? (int)measure.RangeMilliMeter : -1;
+    sensors["distance_mm"] = distVal;
 
     if (millis() - lastDHTRead > 2000) {
         float t = dht.readTemperature();

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'shared/theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _initForegroundTask();
+  await NotificationService.init();
   runApp(const ProviderScope(child: CentroProductividadApp()));
 }
 

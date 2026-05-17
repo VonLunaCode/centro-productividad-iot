@@ -33,6 +33,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (state.status == CalibrationStatus.idle) ...[
                 _buildIntro(),
@@ -52,11 +53,13 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   Widget _buildIntro() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Icon(Icons.accessibility_new, size: 80, color: AppColors.primary),
         const SizedBox(height: 32),
         const Text(
           'Iniciando Calibración',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
@@ -80,6 +83,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   Widget _buildProgress(CalibrationState state) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Stack(
           alignment: Alignment.center,
@@ -103,11 +107,13 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
         const SizedBox(height: 48),
         const Text(
           'Capturando datos...',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white, fontSize: 18),
         ),
         const SizedBox(height: 8),
         const Text(
           'No te muevas',
+          textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
         ),
       ],
@@ -116,11 +122,13 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   Widget _buildSuccess() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Icon(Icons.check_circle, size: 80, color: AppColors.success),
         const SizedBox(height: 32),
         const Text(
           'Calibración Exitosa',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
@@ -140,11 +148,13 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   Widget _buildError(CalibrationState state) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Icon(Icons.error_outline, size: 80, color: AppColors.error),
         const SizedBox(height: 32),
         const Text(
           'Error en la Calibración',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),

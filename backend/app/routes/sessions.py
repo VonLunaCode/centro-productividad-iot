@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from ..models import SessionStartRequest, SessionResponse, ActiveSessionResponse
+from typing import List
+from ..models import SessionStartRequest, SessionResponse, ActiveSessionResponse, SessionHistoryItem
 from ..security import get_current_user
-from ..services.session_service import start_session, stop_session, get_active_session_by_user
+from ..services.session_service import start_session, stop_session, get_active_session_by_user, get_session_history
 
 router = APIRouter(prefix="/session", tags=["Sessions"])
 
@@ -52,6 +53,11 @@ async def api_stop_session(current_user: dict = Depends(get_current_user)):
         "started_at": result.get("started_at"), # Si el service lo devuelve
         "ended_at": result["ended_at"]
     }
+
+@router.get("/history", response_model=List[SessionHistoryItem])
+async def api_session_history(current_user: dict = Depends(get_current_user)):
+    """Retorna el historial de sesiones finalizadas con métricas agregadas."""
+    return await get_session_history(current_user["id"])
 
 @router.get("/active", response_model=ActiveSessionResponse)
 async def api_get_active_session(current_user: dict = Depends(get_current_user)):

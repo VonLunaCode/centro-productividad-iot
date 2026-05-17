@@ -45,6 +45,20 @@ class ApiClient {
     );
   }
 
+  static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
+    final token = await TokenStorage.getToken();
+    final url = Uri.parse('${Endpoints.baseUrl}$endpoint');
+
+    return await http.patch(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+  }
+
   static Future<http.Response> delete(String endpoint) async {
     final token = await TokenStorage.getToken();
     final url = Uri.parse('${Endpoints.baseUrl}$endpoint');

@@ -9,46 +9,26 @@ class HistoryState {
   final bool isLoading;
   final String? error;
 
-  HistoryState({
-    this.sessions = const [],
-    this.isLoading = false,
-    this.error,
-  });
-
-  HistoryState copyWith({
-    List<SessionHistory>? sessions,
-    bool? isLoading,
-    String? error,
-  }) {
-    return HistoryState(
-      sessions: sessions ?? this.sessions,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-    );
-  }
+  HistoryState({this.sessions = const [], this.isLoading = false, this.error});
 }
 
 class HistoryNotifier extends StateNotifier<HistoryState> {
   HistoryNotifier() : super(HistoryState()) {
-    fetchHistory();
+    fetch();
   }
 
-  Future<void> fetchHistory() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> fetch() async {
+    state = HistoryState(isLoading: true);
     try {
-      // Nota: En v2, /readings devuelve las lecturas, 
-      // pero necesitaríamos un endpoint de /sessions si queremos la lista de sesiones.
-      // Asumiré que el backend tiene /sessions/history o similar.
-      final response = await ApiClient.get('/sessions/history');
+      final response = await ApiClient.get(Endpoints.sessionHistory);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final sessions = data.map((e) => SessionHistory.fromJson(e)).toList();
-        state = state.copyWith(sessions: sessions, isLoading: false);
+        state = HistoryState(sessions: data.map((e) => SessionHistory.fromJson(e)).toList());
       } else {
-        state = state.copyWith(isLoading: false, error: 'Error al cargar historial');
+        state = HistoryState(error: 'Error al cargar historial');
       }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: 'Sin conexión');
+    } catch (_) {
+      state = HistoryState(error: 'Sin conexión');
     }
   }
 }

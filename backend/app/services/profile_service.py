@@ -35,6 +35,16 @@ async def delete_profile(profile_id: int, user_id: int):
     row = await fetch_one(query, profile_id, user_id)
     return dict(row) if row else None
 
+async def update_thresholds(profile_id: int, user_id: int, fields: dict):
+    """Actualiza solo los campos de umbral que se envíen (PATCH parcial)."""
+    if not fields:
+        return None
+    clauses = ", ".join(f"{k} = ${i+3}" for i, k in enumerate(fields))
+    values = list(fields.values())
+    query = f"UPDATE profiles SET {clauses}, updated_at = NOW() WHERE id = $1 AND user_id = $2 RETURNING *"
+    row = await fetch_one(query, profile_id, user_id, *values)
+    return dict(row) if row else None
+
 async def set_calibrating_state(profile_id: int, user_id: int, state: bool):
     """Cambia el flag de 'calibrating' en la DB."""
     query = "UPDATE profiles SET calibrating = $1 WHERE id = $2 AND user_id = $3"
@@ -50,7 +60,7 @@ async def finish_calibration(profile_id: int, user_id: int, device_id: str = "es
         SELECT distance_mm, temperature, humidity, lux, noise_peak
         FROM readings
         WHERE device_id = $1 AND ts >= NOW() - INTERVAL '60 seconds'
-        ORDER BY recorded_at DESC
+        ORDER BY ts DESC
         """,
         device_id,
     )

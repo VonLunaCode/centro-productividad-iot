@@ -1,104 +1,108 @@
+// =====================================================
+// TEST COMPLETO RAW - TODOS LOS SENSORES
+// KY-037 (Pin 34), LDR (Pin 35), DHT11 (Pin 13)
+// VL53L0X (SDA=21, SCL=22)
+// Serial Monitor a 115200 - SIN WIFI NI MQTT
+// =====================================================
+#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_VL53L0X.h>
-#include "DHT.h"
+#include <DHT.h>
 
-// --- DEFINICIÓN DE PINES SEGÚN LA TABLA ---
-#define SDA_PIN 21        // ToF SDA
-#define SCL_PIN 22        // ToF SCL
-#define DHT_PIN 13        // DHT11 DATA
-#define MIC_PIN 34        // MAX4466 OUT
-#define LDR_PIN 35        // LDR Divisor B
+#define PIN_SDA  21
+#define PIN_SCL  22
+#define PIN_DHT  13
+#define PIN_LDR  35
+#define PIN_MIC  34  // KY-037 AO
 
-#define DHTTYPE DHT11     // Modelo exacto del sensor de temperatura
-
-// Instancias de los sensores
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
-DHT dht(DHT_PIN, DHTTYPE);
+DHT dht(PIN_DHT, DHT11);
+
+// 3 ventanas de 500ms, retorna la maxima amplitud
+int sample_window(int ms) {
+    int signalMax = 0;
+    int signalMin = 4095;
+    unsigned long start = millis();
+    while (millis() - start < (unsigned long)ms) {
+        int s = analogRead(PIN_MIC);
+        if (s > signalMax) signalMax = s;
+        if (s < signalMin) signalMin = s;
+    }
+    return signalMax - signalMin;
+}
+
+int get_noise_peak() {
+    int a = sample_window(500);
+    int b = sample_window(500);
+    int c = sample_window(500);
+    return max(a, max(b, c));
+}
 
 void setup() {
-  Serial.begin(115200);
-  
-  // Esperar a que inicie el Serial Monitor
-  while (!Serial) { delay(1); }
-  
-  Serial.println("\n--- INICIANDO TEST DE HARDWARE ESP32 ---");
+    Serial.begin(115200);
+    delay(1000);
+    Serial.println("\n========================================");
+    Serial.println("  TEST COMPLETO RAW - TODOS LOS SENSORES");
+    Serial.println("========================================\n");
 
-  // 1. Iniciar I2C para el sensor de distancia
-  Wire.begin(SDA_PIN, SCL_PIN);
-  
-  // --- INICIO ESCÁNER I2C ---
-  Serial.println(F("Escaneando bus I2C buscando el ToF..."));
-  byte error, address;
-  int nDevices = 0;
-  for(address = 1; address < 127; address++ ) {
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-    if (error == 0) {
-      Serial.print(F("¡Dispositivo I2C encontrado en la dirección 0x"));
-      if (address<16) Serial.print("0");
-      Serial.print(address,HEX);
-      Serial.println(F(" !"));
-      nDevices++;
-    } else if (error==4) {
-      Serial.print(F("Error desconocido en la dirección 0x"));
-      if (address<16) Serial.print("0");
-      Serial.println(address,HEX);
-    }    
-  }
-  if (nDevices == 0) {
-    Serial.println(F("❌ ERROR CRÍTICO: No se encontró NINGÚN dispositivo I2C."));
-    Serial.println(F("   -> Posibles causas: Soldadura fría, cables rotos, o pines equivocados."));
-  } else {
-    Serial.println(F("✅ Escaneo I2C completado."));
-  }
-  // --- FIN ESCÁNER I2C ---
+    Wire.begin(PIN_SDA, PIN_SCL);
 
-  if (!lox.begin()) {
-    Serial.println(F("ERROR: El bus I2C funciona pero la librería no detectó el VL53L0X."));
-  } else {
-    Serial.println(F("OK: Sensor VL53L0X iniciado."));
-  }
+    Serial.print("[VL53L0X] Inicializando... ");
+    if (!lox.begin()) {
+        Serial.println("ERROR - revisar SDA(21) y SCL(22)");
+    } else {
+        Serial.println("OK");
+    }
 
-  // 2. Iniciar DHT11
-  dht.begin();
-  Serial.println(F("OK: Sensor DHT11 iniciado."));
+    dht.begin();
+    Serial.println("[DHT11]   OK - Pin 13");
 
-  // 3. Configurar resolución del ADC del ESP32 (12 bits: 0-4095)
-  analogReadResolution(12);
-  
-  Serial.println("\n--- SISTEMA LISTO. LEYENDO DATOS... ---\n");
+    pinMode(PIN_LDR, INPUT);
+    Serial.println("[LDR]     OK - Pin 35");
+
+    pinMode(PIN_MIC, INPUT);
+    analogReadResolution(12);
+    Serial.println("[KY-037]  OK - Pin 34 (AO)");
+
+    Serial.println("\n--- INICIANDO LECTURAS CADA ~3 SEGUNDOS ---\n");
+    delay(1000);
 }
 
 void loop() {
-  // --- LECTURA ANALÓGICA (Luz y Ruido) ---
-  int ldrValue = analogRead(LDR_PIN);
-  int micValue = analogRead(MIC_PIN);
+    Serial.println("==========================================");
 
-  // --- LECTURA DHT11 (Temperatura y Humedad) ---
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
+    // --- VL53L0X ---
+    VL53L0X_RangingMeasurementData_t measure;
+    lox.rangingTest(&measure, false);
+    if (measure.RangeStatus != 4) {
+        Serial.printf("[DISTANCIA] %d mm  (rango ok)\n", measure.RangeMilliMeter);
+    } else {
+        Serial.println("[DISTANCIA] -1  (fuera de rango o error)");
+    }
 
-  // --- LECTURA VL53L0X (Distancia) ---
-  VL53L0X_RangingMeasurementData_t measure;
-  lox.rangingTest(&measure, false); // false = sin debug
+    // --- DHT11 ---
+    float temp = dht.readTemperature();
+    float hum  = dht.readHumidity();
+    if (isnan(temp) || isnan(hum)) {
+        Serial.println("[DHT11]     ERROR - no responde");
+    } else {
+        Serial.printf("[TEMP]      %.1f C\n", temp);
+        Serial.printf("[HUMEDAD]   %.0f %%\n", hum);
+    }
 
-  // --- IMPRIMIR RESULTADOS ---
-  Serial.print("Luz (LDR): "); Serial.print(ldrValue);
-  Serial.print("\t| Ruido (Mic): "); Serial.print(micValue);
-  
-  // Validar si el DHT11 falló
-  if (isnan(h) || isnan(t)) {
-    Serial.print("\t| DHT: ERROR");
-  } else {
-    Serial.print("\t| Temp: "); Serial.print(t); Serial.print("C Hum: "); Serial.print(h); Serial.print("%");
-  }
+    // --- LDR ---
+    int ldrRaw = analogRead(PIN_LDR);
+    int lux    = map(ldrRaw, 0, 4095, 0, 1000);
+    Serial.printf("[LUZ RAW]   %d  (0-4095)\n", ldrRaw);
+    Serial.printf("[LUZ LUX]   %d  (0-1000 aprox)\n", lux);
 
-  // Validar si el ToF detectó algo
-  if (measure.RangeStatus != 4) {  // 4 = Out of range
-    Serial.print("\t| Distancia: "); Serial.print(measure.RangeMilliMeter); Serial.println(" mm");
-  } else {
-    Serial.println("\t| Distancia: Fuera de rango");
-  }
+    // --- KY-037 ---
+    Serial.println("[MIC]       Muestreando 1.5s...");
+    int noiseRaw = get_noise_peak();
+    int micSnap  = analogRead(PIN_MIC);
+    Serial.printf("[RUIDO P2P] %d  (max de 3 ventanas)\n", noiseRaw);
+    Serial.printf("[MIC SNAP]  %d  (muestra unica)\n", micSnap);
 
-  delay(2000); // Leer cada 2 segundos para no saturar el DHT11
+    Serial.println();
+    delay(500);
 }

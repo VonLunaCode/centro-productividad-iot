@@ -33,9 +33,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Color _bgColor(bool posture, bool lowLight) {
-    if (posture) return const Color(0xFF3B0A0A); // deep red
-    if (lowLight) return const Color(0xFF3B2A00); // deep amber
-    return const Color(0xFF0A0A0A); // AMOLED black
+    if (_calibrating) return const Color(0xFF0A0A0A); // silenciar alertas
+    if (posture) return const Color(0xFF3B0A0A);
+    if (lowLight) return const Color(0xFF3B2A00);
+    return const Color(0xFF0A0A0A);
   }
 
   @override
@@ -269,6 +270,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   String _statusText(({bool posture, bool lowLight}) alerts) {
+    if (_calibrating) return '📡 Calibrando...';
     if (alerts.posture) return '⚠ Corregí la postura';
     if (alerts.lowLight) return '💡 Poca luz';
     return '✓ Postura óptima';

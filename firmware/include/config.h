@@ -23,7 +23,7 @@
 // Hardware Pins
 #define PIN_DHT 13
 #define PIN_LDR 35
-#define PIN_MIC 34
+#define PIN_MIC 34  // KY-037 AO
 #define PIN_SDA 21
 #define PIN_SCL 22
 

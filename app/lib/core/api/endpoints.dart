@@ -14,6 +14,7 @@ class Endpoints {
   static String deleteProfile(int id) => '/profiles/$id';
   static String calibrateStart(int id) => '/profiles/$id/calibrate/start';
   static String calibrateFinish(int id) => '/profiles/$id/calibrate/finish';
+  static String updateThresholds(int id) => '/profiles/$id/thresholds';
 
   // Sessions
   static const String sessionStart = '/session/start';
@@ -22,4 +23,5 @@ class Endpoints {
 
   // History
   static const String readings = '/readings';
+  static const String sessionHistory = '/session/history';
 }

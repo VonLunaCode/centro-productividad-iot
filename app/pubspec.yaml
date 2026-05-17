@@ -52,6 +52,10 @@ dependencies:
   
   # Audio
   just_audio: ^0.9.41
+  audio_session: ^0.1.21
+
+  # SVG
+  flutter_svg: ^2.0.10+1
   
   # UI & Charts
   google_fonts: ^6.2.1
@@ -71,6 +75,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   build_runner: ^2.4.9
   riverpod_generator: ^2.4.0
+  flutter_launcher_icons: ^0.14.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,10 +88,18 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/icon.png"
+  adaptive_icon_background: "#0C0820"
+  adaptive_icon_foreground: "assets/images/logo_foreground.png"
+  min_sdk_android: 21
+
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/sounds/
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

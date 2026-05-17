@@ -12,6 +12,18 @@ class SensorData(BaseModel):
 class ProfileCreate(BaseModel):
     name: str
 
+class ThresholdUpdate(BaseModel):
+    distance_min: Optional[float] = None
+    distance_max: Optional[float] = None
+    temp_min: Optional[float] = None
+    temp_max: Optional[float] = None
+    hum_min: Optional[float] = None
+    hum_max: Optional[float] = None
+    lux_min: Optional[float] = None
+    lux_max: Optional[float] = None
+    noise_peak_min: Optional[float] = None
+    noise_peak_max: Optional[float] = None
+
 class ProfileResponse(BaseModel):
     id: int
     user_id: int
@@ -48,6 +60,19 @@ class ProfileResponse(BaseModel):
     calibrated_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+class SessionHistoryItem(BaseModel):
+    id: int
+    started_at: datetime
+    ended_at: Optional[datetime]
+    duration_minutes: Optional[float]
+    profile_name: Optional[str]
+    total_readings: int
+    posture_alert_pct: float
+    temp_alert_pct: float
+    noise_alert_pct: float
+    light_alert_pct: float
+    humidity_alert_pct: float
 
 class CalibrateFinishRequest(BaseModel):
     samples: List[SensorData]

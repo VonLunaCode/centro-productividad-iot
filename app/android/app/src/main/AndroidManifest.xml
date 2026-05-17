@@ -14,7 +14,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
-        android:label="centro_productividad"
+        android:label="Centro IoT"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

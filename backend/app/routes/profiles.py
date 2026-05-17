@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from ..models import ProfileCreate, ProfileResponse, CalibrateFinishRequest
+from ..models import ProfileCreate, ProfileResponse, CalibrateFinishRequest, ThresholdUpdate
 from ..security import get_current_user
 from ..services import profile_service
 from ..mqtt_publisher import publish_cmd
@@ -65,6 +65,19 @@ async def finish_calibration(
     if error:
         await profile_service.set_calibrating_state(id, current_user["id"], False)
         raise HTTPException(status_code=400, detail=error)
+    return profile
+
+@router.patch("/{id}/thresholds", response_model=ProfileResponse)
+async def update_thresholds(
+    id: int,
+    request: ThresholdUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Permite al usuario ajustar manualmente los umbrales min/max de un perfil."""
+    fields = {k: v for k, v in request.model_dump().items() if v is not None}
+    profile = await profile_service.update_thresholds(id, current_user["id"], fields)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Perfil no encontrado")
     return profile
 
 @router.delete("/{id}")
